@@ -57,6 +57,160 @@ from utils.general import (
 from utils.torch_utils import copy_attr, smart_inference_mode
 
 
+# Addition of RFEM Attention Mechanism for C3
+# RFEM
+class TridentBlock(nn.Module):
+    def __init__(self, c1, c2, stride=1, c=False, e=0.5, padding=[1, 2, 3], dilate=[1, 2, 3], bias=False):
+        super(TridentBlock, self).__init__()
+        self.stride = stride
+        self.c = c
+        c_ = int(c2 * e)
+        self.padding = padding
+        self.dilate = dilate
+        self.share_weightconv1 = nn.Parameter(torch.Tensor(c_, c1, 1, 1))
+        self.share_weightconv2 = nn.Parameter(torch.Tensor(c2, c_, 3, 3))
+ 
+        self.bn1 = nn.BatchNorm2d(c_)
+        self.bn2 = nn.BatchNorm2d(c2)
+ 
+        # self.act = nn.SiLU()
+        self.act = Conv.default_act
+ 
+        nn.init.kaiming_uniform_(self.share_weightconv1, nonlinearity="relu")
+        nn.init.kaiming_uniform_(self.share_weightconv2, nonlinearity="relu")
+ 
+        if bias:
+            self.bias = nn.Parameter(torch.Tensor(c2))
+        else:
+            self.bias = None
+ 
+        if self.bias is not None:
+            nn.init.constant_(self.bias, 0)
+ 
+    def forward_for_small(self, x):
+        residual = x
+        out = nn.functional.conv2d(x, self.share_weightconv1, bias=self.bias)
+        out = self.bn1(out)
+        out = self.act(out)
+ 
+        out = nn.functional.conv2d(out, self.share_weightconv2, bias=self.bias, stride=self.stride,
+                                   padding=self.padding[0],
+                                   dilation=self.dilate[0])
+        out = self.bn2(out)
+        out += residual
+        out = self.act(out)
+ 
+        return out
+ 
+    def forward_for_middle(self, x):
+        residual = x
+        out = nn.functional.conv2d(x, self.share_weightconv1, bias=self.bias)
+        out = self.bn1(out)
+        out = self.act(out)
+ 
+        out = nn.functional.conv2d(out, self.share_weightconv2, bias=self.bias, stride=self.stride,
+                                   padding=self.padding[1],
+                                   dilation=self.dilate[1])
+        out = self.bn2(out)
+        out += residual
+        out = self.act(out)
+ 
+        return out
+ 
+    def forward_for_big(self, x):
+        residual = x
+        out = nn.functional.conv2d(x, self.share_weightconv1, bias=self.bias)
+        out = self.bn1(out)
+        out = self.act(out)
+ 
+        out = nn.functional.conv2d(out, self.share_weightconv2, bias=self.bias, stride=self.stride,
+                                   padding=self.padding[2],
+                                   dilation=self.dilate[2])
+        out = self.bn2(out)
+        out += residual
+        out = self.act(out)
+ 
+        return out
+ 
+    def forward(self, x):
+        xm = x
+        base_feat = []
+        if self.c is not False:
+            x1 = self.forward_for_small(x)
+            x2 = self.forward_for_middle(x)
+            x3 = self.forward_for_big(x)
+        else:
+            x1 = self.forward_for_small(xm[0])
+            x2 = self.forward_for_middle(xm[1])
+            x3 = self.forward_for_big(xm[2])
+ 
+        base_feat.append(x1)
+        base_feat.append(x2)
+        base_feat.append(x3)
+ 
+        return base_feat
+ 
+ 
+class RFEM(nn.Module):
+    def __init__(self, c1, c2, n=1, e=0.5, stride=1):
+        super(RFEM, self).__init__()
+        c = True
+        layers = []
+        layers.append(TridentBlock(c1, c2, stride=stride, c=c, e=e))
+        c1 = c2
+        for i in range(1, n):
+            layers.append(TridentBlock(c1, c2))
+        self.layer = nn.Sequential(*layers)
+        # self.cv = Conv(c2, c2)
+        self.bn = nn.BatchNorm2d(c2)
+        # self.act = nn.SiLU()
+        self.act = Conv.default_act
+ 
+    def forward(self, x):
+        out = self.layer(x)
+        out = out[0] + out[1] + out[2] + x
+        out = self.act(self.bn(out))
+        return out
+ 
+ 
+class C3RFEM(nn.Module):
+    def __init__(self, c1, c2, n=1, shortcut=True, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
+        super().__init__()
+        c_ = int(c2 * e)  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.cv2 = Conv(c1, c_, 1, 1)
+        self.cv3 = Conv(2 * c_, c2, 1)  # act=FReLU(c2)
+        # self.m = nn.Sequential(*(Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)))
+        # self.rfem = RFEM(c_, c_, n)
+        self.m = nn.Sequential(*[RFEM(c_, c_, n=1, e=e) for _ in range(n)])
+        # self.m = nn.Sequential(*[CrossConv(c_, c_, 3, 1, g, 1.0, shortcut) for _ in range(n)])
+ 
+    def forward(self, x):
+        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
+
+# SPDConv
+class SPDConv(nn.Module):
+    """Standard convolution with args(ch_in, ch_out, kernel, stride, padding, groups, dilation, activation)."""
+    default_act = nn.SiLU()  # default activation
+ 
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True):
+        """Initialize Conv layer with given arguments including activation."""
+        super().__init__()
+        c1 = c1 * 4
+        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
+ 
+    def forward(self, x):
+        x = torch.cat([x[..., ::2, ::2], x[..., 1::2, ::2], x[..., ::2, 1::2], x[..., 1::2, 1::2]], 1)
+        """Apply convolution, batch normalization and activation to input tensor."""
+        return self.act(self.bn(self.conv(x)))
+ 
+    def forward_fuse(self, x):
+        """Perform transposed convolution of 2D data."""
+        x = torch.cat([x[..., ::2, ::2], x[..., 1::2, ::2], x[..., ::2, 1::2], x[..., 1::2, 1::2]], 1)
+        return self.act(self.conv(x))
+
 def autopad(k, p=None, d=1):
     """
     Pads kernel to 'same' output shape, adjusting for optional dilation; returns padding size.
@@ -455,7 +609,6 @@ class Concat(nn.Module):
         """
         return torch.cat(x, self.d)
 
-
 class DetectMultiBackend(nn.Module):
     """YOLOv5 MultiBackend class for inference on various backends including PyTorch, ONNX, TensorRT, and more."""
 
@@ -644,32 +797,20 @@ class DetectMultiBackend(nn.Module):
                     stride, names = int(meta["stride"]), meta["names"]
         elif tfjs:  # TF.js
             raise NotImplementedError("ERROR: YOLOv5 TF.js inference is not supported")
-        # PaddlePaddle
-        elif paddle:
+        elif paddle:  # PaddlePaddle
             LOGGER.info(f"Loading {w} for PaddlePaddle inference...")
-            check_requirements("paddlepaddle-gpu" if cuda else "paddlepaddle>=3.0.0")
+            check_requirements("paddlepaddle-gpu" if cuda else "paddlepaddle")
             import paddle.inference as pdi
 
-            w = Path(w)
-            if w.is_dir():
-                model_file = next(w.rglob("*.json"), None)
-                params_file = next(w.rglob("*.pdiparams"), None)
-            elif w.suffix == ".pdiparams":
-                model_file = w.with_name("model.json")
-                params_file = w
-            else:
-                raise ValueError(f"Invalid model path {w}. Provide model directory or a .pdiparams file.")
-
-            if not (model_file and params_file and model_file.is_file() and params_file.is_file()):
-                raise FileNotFoundError(f"Model files not found in {w}. Both .json and .pdiparams files are required.")
-
-            config = pdi.Config(str(model_file), str(params_file))
+            if not Path(w).is_file():  # if not *.pdmodel
+                w = next(Path(w).rglob("*.pdmodel"))  # get *.pdmodel file from *_paddle_model dir
+            weights = Path(w).with_suffix(".pdiparams")
+            config = pdi.Config(str(w), str(weights))
             if cuda:
                 config.enable_use_gpu(memory_pool_init_size_mb=2048, device_id=0)
             predictor = pdi.create_predictor(config)
             input_handle = predictor.get_input_handle(predictor.get_input_names()[0])
             output_names = predictor.get_output_names()
-
         elif triton:  # NVIDIA Triton Inference Server
             LOGGER.info(f"Using {w} as Triton Inference Server...")
             check_requirements("tritonclient[all]")
@@ -1121,3 +1262,189 @@ class Classify(nn.Module):
         if isinstance(x, list):
             x = torch.cat(x, 1)
         return self.linear(self.drop(self.pool(self.conv(x)).flatten(1)))
+
+# Addition of C3_GhostDynamicConv
+import math
+from timm.layers import CondConv2d
+import torch.nn.functional as F # import the functional module as F
+ 
+class DynamicConv_Single(nn.Module):
+    """ Dynamic Conv layer
+    """
+    def __init__(self, in_features, out_features, kernel_size=1, stride=1, padding='', dilation=1,
+                 groups=1, bias=False, num_experts=4):
+        super().__init__()
+        self.routing = nn.Linear(in_features, num_experts)
+        self.cond_conv = CondConv2d(in_features, out_features, kernel_size, stride, padding, dilation,
+                 groups, bias, num_experts)
+        
+    def forward(self, x):
+        pooled_inputs = F.adaptive_avg_pool2d(x, 1).flatten(1)  # CondConv routing
+        routing_weights = torch.sigmoid(self.routing(pooled_inputs))
+        x = self.cond_conv(x, routing_weights)
+        return x
+ 
+class DynamicConv(nn.Module):
+    default_act = nn.SiLU()  # default activation
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True, num_experts=4):
+        super().__init__()
+        self.conv = nn.Sequential(
+            DynamicConv_Single(c1, c2, kernel_size=k, stride=s, padding=autopad(k, p, d), dilation=d, groups=g, num_experts=num_experts),
+            nn.BatchNorm2d(c2),
+            self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
+        )
+    
+    def forward(self, x):
+        return self.conv(x)
+ 
+class GhostModule(nn.Module):
+    def __init__(self, inp, oup, kernel_size=1, ratio=2, dw_size=3, stride=1, act_layer=nn.SiLU, num_experts=4):
+        super(GhostModule, self).__init__()
+        self.oup = oup
+        init_channels = math.ceil(oup / ratio)
+        new_channels = init_channels * (ratio - 1)
+ 
+        self.primary_conv = DynamicConv(inp, init_channels, kernel_size, stride, num_experts=num_experts)
+ 
+        self.cheap_operation = DynamicConv(init_channels, new_channels, dw_size, 1, g=init_channels, num_experts=num_experts)
+ 
+    def forward(self, x):
+        x1 = self.primary_conv(x)
+        x2 = self.cheap_operation(x1)
+        out = torch.cat([x1, x2], dim=1)
+        return out[:, :self.oup, :, :]
+ 
+class Bottleneck_DynamicConv(Bottleneck):
+    def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=0.5):
+        super().__init__(c1, c2, shortcut, g, k, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.cv2 = DynamicConv(c2, c2, 3)
+ 
+class C3_DynamicConv(C3):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(Bottleneck_DynamicConv(c_, c_, shortcut, g, k=(1, 3), e=1.0) for _ in range(n)))
+ 
+ 
+class C3_GhostDynamicConv(C3):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(GhostModule(c_, c_) for _ in range(n)))
+
+# Addition of SPPFCSPC
+class SPPFCSPC(nn.Module):
+    
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5, k=5):
+        super(SPPFCSPC, self).__init__()
+        c_ = int(2 * c2 * e)  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.cv2 = Conv(c1, c_, 1, 1)
+        self.cv3 = Conv(c_, c_, 3, 1)
+        self.cv4 = Conv(c_, c_, 1, 1)
+        self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
+        self.cv5 = Conv(4 * c_, c_, 1, 1)
+        self.cv6 = Conv(c_, c_, 3, 1)
+        self.cv7 = Conv(2 * c_, c2, 1, 1)
+ 
+    def forward(self, x):
+        x1 = self.cv4(self.cv3(self.cv1(x)))
+        x2 = self.m(x1)
+        x3 = self.m(x2)
+        y1 = self.cv6(self.cv5(torch.cat((x1, x2, x3, self.m(x3)), 1)))
+        y2 = self.cv2(x)
+        return self.cv7(torch.cat((y1, y2), dim=1))
+
+# Addition of Dynamic_conv2d
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+ 
+class attention2d(nn.Module):
+    def __init__(self, in_planes, ratios, K, temperature, init_weight=True):
+        super(attention2d, self).__init__()
+        assert temperature%3==1
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        if in_planes!=3:
+            hidden_planes = int(in_planes*ratios)
+        else:
+            hidden_planes = K
+        self.fc1 = nn.Conv2d(in_planes, hidden_planes, 1, bias=False)
+        self.fc2 = nn.Conv2d(hidden_planes, K, 1, bias=False)
+        self.temperature = temperature
+        if init_weight:
+            self._initialize_weights()
+ 
+ 
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+ 
+    def updata_temperature(self):
+        if self.temperature!=1:
+            self.temperature -=3
+            print('Change temperature to:', str(self.temperature))
+ 
+ 
+    def forward(self, x):
+        x = self.avgpool(x)
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x).view(x.size(0), -1)
+        return F.softmax(x/self.temperature, 1)
+ 
+ 
+class Dynamic_conv2d(nn.Module):
+    def __init__(self, in_planes, out_planes, kernel_size, ratio=0.25, stride=1, padding=0, dilation=1, groups=1, bias=True, K=4,temperature=34, init_weight=True):
+        super(Dynamic_conv2d, self).__init__()
+        assert in_planes%groups==0
+        self.in_planes = in_planes
+        self.out_planes = out_planes
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        self.dilation = dilation
+        self.groups = groups
+        self.bias = bias
+        self.K = K
+        self.attention = attention2d(in_planes, ratio, K, temperature)
+ 
+        self.weight = nn.Parameter(torch.Tensor(K, out_planes, in_planes//groups, kernel_size, kernel_size), requires_grad=True)
+        if bias:
+            self.bias = nn.Parameter(torch.Tensor(K, out_planes))
+        else:
+            self.bias = None
+        if init_weight:
+            self._initialize_weights()
+ 
+        #TODO 初始化
+    def _initialize_weights(self):
+        for i in range(self.K):
+            nn.init.kaiming_uniform_(self.weight[i])
+ 
+ 
+    def update_temperature(self):
+        self.attention.updata_temperature()
+ 
+    def forward(self, x): # 将batch视作维度变量，进行组卷积，因为组卷积的权重是不同的，动态卷积的权重也是不同的
+        softmax_attention = self.attention(x)
+        batch_size, in_planes, height, width = x.size()
+        x = x.view(1, -1, height, width)# 变化成一个维度进行组卷积
+        weight = self.weight.view(self.K, -1)
+ 
+        # 动态卷积的权重的生成， 生成的是batch_size个卷积参数（每个参数不同）
+        aggregate_weight = torch.mm(softmax_attention, weight).view(-1, self.in_planes, self.kernel_size, self.kernel_size)
+        if self.bias is not None:
+            aggregate_bias = torch.mm(softmax_attention, self.bias).view(-1)
+            output = F.conv2d(x, weight=aggregate_weight, bias=aggregate_bias, stride=self.stride, padding=self.padding,
+                              dilation=self.dilation, groups=self.groups*batch_size)
+        else:
+            output = F.conv2d(x, weight=aggregate_weight, bias=None, stride=self.stride, padding=self.padding,
+                              dilation=self.dilation, groups=self.groups * batch_size)
+ 
+        output = output.view(batch_size, self.out_planes, output.size(-2), output.size(-1))
+        return output
