@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLOv5 🚀, AGPL-3.0 license
 """
 Train a YOLOv5 model on a custom dataset. Models and datasets download automatically from the latest YOLOv5 release.
 
@@ -35,6 +35,7 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 import yaml
+# from models.common import BiFPN_Concat2, BiFPN_Concat3
 from torch.optim import lr_scheduler
 from tqdm import tqdm
 
@@ -98,6 +99,20 @@ LOCAL_RANK = int(os.getenv("LOCAL_RANK", -1))  # https://pytorch.org/docs/stable
 RANK = int(os.getenv("RANK", -1))
 WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
 GIT_INFO = check_git_info()
+
+import os
+import warnings
+
+os.environ['WANDB_DISABLED'] = 'true'
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore", message=".*torch.cuda.amp.autocast.*")
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+import torch
+torch.use_deterministic_algorithms(False, warn_only=True)
+
 
 
 def train(hyp, opt, device, callbacks):
@@ -331,7 +346,7 @@ def train(hyp, opt, device, callbacks):
     # DDP mode
     if cuda and RANK != -1:
         model = smart_DDP(model)
-
+    torch.use_deterministic_algorithms(False)
     # Model attributes
     nl = de_parallel(model).model[-1].nl  # number of detection layers (to scale hyps)
     hyp["box"] *= 3 / nl  # scale to layers
@@ -357,10 +372,10 @@ def train(hyp, opt, device, callbacks):
     compute_loss = ComputeLoss(model)  # init loss class
     callbacks.run("on_train_start")
     LOGGER.info(
-        f"Image sizes {imgsz} train, {imgsz} val\n"
-        f"Using {train_loader.num_workers * WORLD_SIZE} dataloader workers\n"
+        f'Image sizes {imgsz} train, {imgsz} val\n'
+        f'Using {train_loader.num_workers * WORLD_SIZE} dataloader workers\n'
         f"Logging results to {colorstr('bold', save_dir)}\n"
-        f"Starting training for {epochs} epochs..."
+        f'Starting training for {epochs} epochs...'
     )
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         callbacks.run("on_train_epoch_start")
@@ -420,6 +435,8 @@ def train(hyp, opt, device, callbacks):
             # Backward
             scaler.scale(loss).backward()
 
+            torch.use_deterministic_algorithms(False)
+
             # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
             if ni - last_opt_step >= accumulate:
                 scaler.unscale_(optimizer)  # unscale gradients
@@ -434,7 +451,7 @@ def train(hyp, opt, device, callbacks):
             # Log
             if RANK in {-1, 0}:
                 mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
-                mem = f"{torch.cuda.memory_reserved() / 1e9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
+                mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
                 pbar.set_description(
                     ("%11s" * 2 + "%11.4g" * 5)
                     % (f"{epoch}/{epochs - 1}", mem, *mloss, targets.shape[0], imgs.shape[-1])
@@ -880,9 +897,9 @@ def main(opt, callbacks=Callbacks()):
         # Plot results
         plot_evolve(evolve_csv)
         LOGGER.info(
-            f"Hyperparameter evolution finished {opt.evolve} generations\n"
+            f'Hyperparameter evolution finished {opt.evolve} generations\n'
             f"Results saved to {colorstr('bold', save_dir)}\n"
-            f"Usage example: $ python train.py --hyp {evolve_yaml}"
+            f'Usage example: $ python train.py --hyp {evolve_yaml}'
         )
 
 
