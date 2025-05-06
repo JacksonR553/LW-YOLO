@@ -43,6 +43,12 @@ TensorFlow.js:
     $ ln -s ../../yolov5/yolov5s_web_model public/yolov5s_web_model
     $ npm start
 """
+# export.py — at the very top
+import torch.nn.functional as F
+from models.custom_pools import AdaptiveAvgPool2dCustom
+
+# override the F.adaptive_avg_pool2d entry
+F.adaptive_avg_pool2d = lambda x, output_size: AdaptiveAvgPool2dCustom(output_size)(x)
 
 import argparse
 import contextlib
