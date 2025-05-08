@@ -11,6 +11,10 @@ import torch
 
 from utils import TryExcept, threaded
 
+## Acknowledgement 
+## This project uses the (https://github.com/jwwangchn/NWD) framework
+## Inspired by jhunmk29 (https://blog.csdn.net/qq_36070656/article/details/133910972?ops_request_misc=%257B%2522request%255Fid%2522%253A%2522d71324d810554492c506a5226962c3f7%2522%252C%2522scm%2522%253A%252220140713.130102334..%2522%257D&request_id=d71324d810554492c506a5226962c3f7&biz_id=0&spm=1018.2226.3001.4187)
+
 def wasserstein_loss(pred, target, eps=1e-7, constant=12.8):
     """`Implementation of paper `Enhancing Geometric Factors into
     Model Learning and Inference for Object Detection and Instance
