@@ -1266,6 +1266,9 @@ class Classify(nn.Module):
             x = torch.cat(x, 1)
         return self.linear(self.drop(self.pool(self.conv(x)).flatten(1)))
 
+## Acknowledgement
+## This project uses the https://github.com/kaijieshi7/Dynamic-convolution-Pytorch/tree/master framework
+## Inspired by Kay_545 (https://blog.csdn.net/m0_67647321/article/details/141675542?ops_request_misc=&request_id=&biz_id=102&spm=1018.2226.3001.4187)
 # Addition of C3_GhostDynamicConv
 import math
 from timm.layers import CondConv2d
