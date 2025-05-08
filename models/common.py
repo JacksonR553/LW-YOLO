@@ -57,7 +57,7 @@ from utils.general import (
 from utils.torch_utils import copy_attr, smart_inference_mode
 
 
-# Addition of RFEM Attention Mechanism for C3
+# -- Unused -- #
 # RFEM
 class TridentBlock(nn.Module):
     def __init__(self, c1, c2, stride=1, c=False, e=0.5, padding=[1, 2, 3], dilate=[1, 2, 3], bias=False):
@@ -188,6 +188,9 @@ class C3RFEM(nn.Module):
     def forward(self, x):
         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
 
+## Acknowledgement
+# This project uses the https://github.com/LabSAINT/SPD-Conv framework
+# Inspired by Kay_545 (https://blog.csdn.net/m0_67647321/article/details/140751384?ops_request_misc=%257B%2522request%255Fid%2522%253A%2522c32665854f54e5731a8920bea0f9a34d%2522%252C%2522scm%2522%253A%252220140713.130102334.pc%255Fall.%2522%257D&request_id=c32665854f54e5731a8920bea0f9a34d&biz_id=0&spm=1018.2226.3001.4187)
 # SPDConv
 class SPDConv(nn.Module):
     """Standard convolution with args(ch_in, ch_out, kernel, stride, padding, groups, dilation, activation)."""
