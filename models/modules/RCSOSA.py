@@ -8,7 +8,6 @@ import torch.nn.functional as F
 import numpy as np
 import math
  
- 
 # build RepVGG block
 # -----------------------------
 def conv_bn(in_channels, out_channels, kernel_size, stride, padding, groups=1):
@@ -19,7 +18,6 @@ def conv_bn(in_channels, out_channels, kernel_size, stride, padding, groups=1):
     result.add_module('bn', nn.BatchNorm2d(num_features=out_channels))
  
     return result
- 
  
 class SEBlock(nn.Module):
     def __init__(self, input_channels):
@@ -39,7 +37,6 @@ class SEBlock(nn.Module):
         x = torch.sigmoid(x)
         x = x.view(-1, self.input_channels, 1, 1)
         return inputs * x
- 
  
 class RepVGG(nn.Module):
  
@@ -129,10 +126,8 @@ class RepVGG(nn.Module):
     def fusevggforward(self, x):
         return self.nonlinearity(self.rbr_dense(x))
  
- 
 # RepVGG block end
 # -----------------------------
- 
 class SR(nn.Module):
     # Shuffle RepVGG
     def __init__(self, c1, c2):
@@ -162,7 +157,6 @@ def make_divisible(x, divisor):
         divisor = int(divisor.max())  # to int
     return math.ceil(x / divisor) * divisor
  
- 
 class RCSOSA(nn.Module):
     # VoVNet with Res Shuffle RepVGG
     def __init__(self, c1, c2, n=1, se=False, e=0.5, stackrep=True):
@@ -185,5 +179,3 @@ class RCSOSA(nn.Module):
         x3 = self.sr2(x2)
         x = torch.cat((x1, x2, x3), 1)
         return self.conv3(x) if self.se is None else self.se(self.conv3(x))
- 
- 
