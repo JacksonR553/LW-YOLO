@@ -1,3 +1,7 @@
+## Acknowledgements
+# This project was uses the https://github.com/wandahangFY/MLCA frameworks.
+# Insipred by Snu77 (https://snu77.blog.csdn.net/article/details/135443489)
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -36,7 +40,6 @@ class MLCA(nn.Module):
         y_local = self.conv_local(temp_local)
         y_global = self.conv(temp_global)
  
- 
         # (b,c,local_size,local_size) <- (b,c,local_size*local_size)<-(b,local_size*local_size,c) <- (b,1,local_size*local_size*c)
         y_local_transpose=y_local.reshape(b, self.local_size * self.local_size,c).transpose(-1,-2).view(b,c, self.local_size , self.local_size)
         # y_global_transpose = y_global.view(b, -1).transpose(-1, -2).unsqueeze(-1)
@@ -60,7 +63,6 @@ def autopad(k, p=None, d=1):  # kernel, padding, dilation
         p = k // 2 if isinstance(k, int) else [x // 2 for x in k]  # auto-pad
     return p
  
- 
 class Conv(nn.Module):
     # Standard convolution with args(ch_in, ch_out, kernel, stride, padding, groups, dilation, activation)
     default_act = nn.SiLU()  # default activation
@@ -76,7 +78,6 @@ class Conv(nn.Module):
  
     def forward_fuse(self, x):
         return self.act(self.conv(x))
- 
  
 class Bottleneck(nn.Module):
     # Standard bottleneck
@@ -103,8 +104,6 @@ class C3_MLCA(nn.Module):
  
     def forward(self, x):
         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
- 
- 
  
 if __name__=="__main__":
     attention=MLCA(in_size=64)
