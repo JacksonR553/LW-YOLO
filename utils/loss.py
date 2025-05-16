@@ -158,11 +158,12 @@ class ComputeLoss:
                 pwh = (pwh.sigmoid() * 2) ** 2 * anchors[i]
                 pbox = torch.cat((pxy, pwh), 1)  # predicted box
                 iou = bbox_iou(pbox, tbox[i], CIoU=True).squeeze()  # iou(prediction, target)
+                # --- Comment out this part of the code --- #
                 # lbox += (1.0 - iou).mean()  # iou loss
 
                 # # Objectness
                 # iou = iou.detach().clamp(0).type(tobj.dtype)
-                # NWD
+                # --- NWD Integration here --- #
                 nwd = wasserstein_loss(pbox, tbox[i]).squeeze()
                 iou_ratio = 0.5
                 lbox += (1 - iou_ratio) * (1.0 - nwd).mean() + iou_ratio * (1.0 - iou).mean()  # iou loss
