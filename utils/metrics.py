@@ -28,27 +28,34 @@ def wasserstein_loss(pred, target, eps=1e-7, constant=12.8):
     Return:
         Tensor: Loss tensor.
     """
-
+    # Split off the box centers (x, y) for predicted vs. target
     center1 = pred[:, :2]
     center2 = target[:, :2]
 
+    # Compute the difference in centers (Δx, Δy)
     whs = center1[:, :2] - center2[:, :2]
 
+    # Squared Euclidean distance between centers + eps for stability
     center_distance = whs[:, 0] * whs[:, 0] + whs[:, 1] * whs[:, 1] + eps #
 
-    w1 = pred[:, 2]  + eps
-    h1 = pred[:, 3]  + eps
-    w2 = target[:, 2] + eps
-    h2 = target[:, 3] + eps
+    # Extract widths and heights, ensure they’re non-zero by adding eps
+    w1 = pred[:, 2]  + eps       # predicted width
+    h1 = pred[:, 3] + eps       # predicted height
+    w2 = target[:, 2] + eps     # target width
+    h2 = target[:, 3] + eps     # target height
 
+    # Squared distance between the half-sizes: ((w1-w2)^2 + (h1-h2)^2) / 4
     wh_distance = ((w1 - w2) ** 2 + (h1 - h2) ** 2) / 4
 
+    # Sum distances to get W2^2 (second‐order Wasserstein squared)
     wasserstein_2 = center_distance + wh_distance
+    # Perfect match (distance=0) → exp(0) = 1; large distance → →0
     return torch.exp(-torch.sqrt(wasserstein_2) / constant)
 
 def fitness(x):
     """Calculates fitness of a model using weighted sum of metrics P, R, mAP@0.5, mAP@0.5:0.95."""
-    w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
+    w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95] Define how much we care for each metrics
+    # result[i] = 0*P + 0*R + 0.1*mAP50 + 0.9*mAP50:95 for the i-th row
     return (x[:, :4] * w).sum(1)
 
 
