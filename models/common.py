@@ -190,7 +190,6 @@ class C3RFEM(nn.Module):
 
 ## Acknowledgement
 # This project uses the https://github.com/LabSAINT/SPD-Conv framework
-# Inspired by Kay_545 (https://blog.csdn.net/m0_67647321/article/details/140751384?ops_request_misc=%257B%2522request%255Fid%2522%253A%2522c32665854f54e5731a8920bea0f9a34d%2522%252C%2522scm%2522%253A%252220140713.130102334.pc%255Fall.%2522%257D&request_id=c32665854f54e5731a8920bea0f9a34d&biz_id=0&spm=1018.2226.3001.4187)
 # SPDConv
 class SPDConv(nn.Module):
     """Standard convolution with args(ch_in, ch_out, kernel, stride, padding, groups, dilation, activation)."""
@@ -1268,7 +1267,6 @@ class Classify(nn.Module):
 
 ## Acknowledgement
 ## This project uses the https://github.com/kaijieshi7/Dynamic-convolution-Pytorch/tree/master framework
-## Inspired by Kay_545 (https://blog.csdn.net/m0_67647321/article/details/141675542?ops_request_misc=&request_id=&biz_id=102&spm=1018.2226.3001.4187)
 # Addition of C3_GhostDynamicConv
 import math
 from timm.layers import CondConv2d
@@ -1338,29 +1336,6 @@ class C3_GhostDynamicConv(C3):
         super().__init__(c1, c2, n, shortcut, g, e)
         c_ = int(c2 * e)  # hidden channels
         self.m = nn.Sequential(*(GhostModule(c_, c_) for _ in range(n)))
-
-# Addition of SPPFCSPC
-class SPPFCSPC(nn.Module):
-    
-    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5, k=5):
-        super(SPPFCSPC, self).__init__()
-        c_ = int(2 * c2 * e)  # hidden channels
-        self.cv1 = Conv(c1, c_, 1, 1)
-        self.cv2 = Conv(c1, c_, 1, 1)
-        self.cv3 = Conv(c_, c_, 3, 1)
-        self.cv4 = Conv(c_, c_, 1, 1)
-        self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
-        self.cv5 = Conv(4 * c_, c_, 1, 1)
-        self.cv6 = Conv(c_, c_, 3, 1)
-        self.cv7 = Conv(2 * c_, c2, 1, 1)
- 
-    def forward(self, x):
-        x1 = self.cv4(self.cv3(self.cv1(x)))
-        x2 = self.m(x1)
-        x3 = self.m(x2)
-        y1 = self.cv6(self.cv5(torch.cat((x1, x2, x3, self.m(x3)), 1)))
-        y2 = self.cv2(x)
-        return self.cv7(torch.cat((y1, y2), dim=1))
 
 # Addition of Dynamic_conv2d
 import torch
