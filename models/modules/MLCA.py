@@ -1,6 +1,5 @@
 ## Acknowledgements
 # This project was uses the https://github.com/wandahangFY/MLCA frameworks.
-# Insipred by Snu77 (https://snu77.blog.csdn.net/article/details/135443489)
 
 import torch
 import torch.nn as nn
