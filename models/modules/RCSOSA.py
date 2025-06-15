@@ -1,6 +1,5 @@
 ## Acknowledgements 
 # - This project uses the (https://github.com/mkang315/RCS-YOLO) framework
-# - Inspired by Snu77 (https://snu77.blog.csdn.net/article/details/135278476)
 
 import torch.nn as nn
 import torch
