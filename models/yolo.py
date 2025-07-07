@@ -53,7 +53,6 @@ from models.common import (
     C3RFEM,
     SPDConv,
     C3_GhostDynamicConv,
-    SPPFCSPC,
     Dynamic_conv2d,
 )
 from models.experimental import MixConv2d
@@ -430,8 +429,7 @@ def parse_model(d, ch):
             C3RFEM,
             SPDConv,
             C3_GhostDynamicConv,
-            SPPFCSPC,
-	        Dynamic_conv2d,
+	    Dynamic_conv2d,
             C3_MLCA,
             RCSOSA,
         }:
