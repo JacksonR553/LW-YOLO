@@ -1,20 +1,29 @@
 # LW-YOLOv5: Lightweight CNN for PCB Defect Detection
 
-![LW-YOLOv5 Architecture](YOLO%20Model%20Architecture%20Design-Modified%20YOLO%20Structure%20(1).jpg)
+![LW-YOLOv5 Architecture](https://github.com/user-attachments/assets/352d1650-e72c-49ed-bca6-2af44ef1bb15)
 
 ---
 
 ## 📌 Introduction
-Printed Circuit Board (PCB) defect detection is crucial for ensuring quality in electronic manufacturing. Traditional inspection methods (manual or AOI) are error-prone and inefficient. Deep learning–based object detection has emerged as a reliable alternative, but deploying these large models on **embedded devices** (such as NVIDIA Jetson Orin Nano) is challenging due to **limited computing power and memory**:contentReference[oaicite:0]{index=0}.
+Printed Circuit Board (PCB) defect detection is crucial for ensuring quality in electronic manufacturing. Traditional inspection methods (manual or AOI) are error-prone and inefficient. Deep learning–based object detection has emerged as a reliable alternative, but deploying these large models on **embedded devices** (such as NVIDIA Jetson Orin Nano) is challenging due to **limited computing power and memory**.
 
 This project proposes **LW-YOLOv5**, an **optimized lightweight version of YOLOv5n**, designed for **real-time PCB defect detection on embedded devices**.  
 
 Key highlights:
 - Reduced parameters from **1.70M → 1.18M** (–31%).
 - Achieved **mAP@0.5 = 0.945** with only 1.18M parameters.
-- Outperforms many SOTA models in **accuracy–efficiency trade-off**:contentReference[oaicite:1]{index=1}.
+- Outperforms many SOTA models in **accuracy–efficiency trade-off**.
 
----
+## 📂 Dataset
+- PKU-Market-PCB dataset used for training & evaluation.
+- Six PCB defect classes: missing holes, mouse bites, open circuits, shorts, spurs, spurious copper
+- Dataset can be found on Kaggle(https://www.kaggle.com/datasets/akhatova/pcb-defects)
+
+## 🔬 Key Contributions
+- Developed LW-YOLOv5: A compact model (1.18M params) optimized for embedded devices.
+- Conducted comprehensive ablation studies proving the cumulative benefits of each lightweight module.
+- Performed comparative studies against state-of-the-art models.
+- Achieved robust deployment on embedded hardware with real-time inference and low power usage.
 
 ## 🚀 Features
 - **Ultra-lightweight**: Only **1.18M parameters**, suitable for edge devices.
@@ -26,8 +35,6 @@ Key highlights:
   - **CRFM fusion**  
   - **NWD Loss** (Normalized Wasserstein Distance)  
 - **Deployment-ready**: Optimized for **NVIDIA Jetson Orin Nano** and ONNX Runtime.
-
----
 
 ## 🧪 Ablation Study
 Cumulative impact of modules added to YOLOv5n (baseline):
@@ -43,9 +50,7 @@ Cumulative impact of modules added to YOLOv5n (baseline):
 | + CRFM structure             | 0.969 | 0.904 | 0.933   | 0.424        | 0.91       |
 | + RCSOSA attention (final)   | 0.970 | 0.914 | 0.945   | 0.432        | 1.18       |
 
-> 🔑 Each module **improves detection accuracy** while progressively reducing or balancing parameter size:contentReference[oaicite:2]{index=2}.
-
----
+> 🔑 Each module **improves detection accuracy** while progressively reducing or balancing parameter size.
 
 ## 📊 Comparative Analysis with SOTA
 LW-YOLOv5 compared against other lightweight and PCB-specific models:
@@ -58,21 +63,15 @@ LW-YOLOv5 compared against other lightweight and PCB-specific models:
 | ARMA-based YOLO  | 2023 | 0.950   | 2.121      |
 | **LW-YOLOv5 (Proposed)** | 2025 | **0.945** | **1.18** |
 
-✔ LW-YOLOv5 achieves a strong **accuracy–efficiency balance**, making it ideal for embedded deployment:contentReference[oaicite:3]{index=3}.
-
----
+✔ LW-YOLOv5 achieves a strong **accuracy–efficiency balance**, making it ideal for embedded deployment.
 
 ## 🏗 Model Architecture
 
 ### LW-YOLOv5 (Proposed)
-![LW-YOLOv5 Architecture](YOLO%20Model%20Architecture%20Design-Modified%20YOLO%20Structure%20(1).jpg)
-
----
+![LW-YOLOv5 Architecture](https://github.com/user-attachments/assets/352d1650-e72c-49ed-bca6-2af44ef1bb15)
 
 ### YOLOv5n (Baseline)
-![YOLOv5n Architecture](YOLO%20Model%20Architecture%20Design-Original%20YOLOv5%20Structure%20(1).jpg)
-
----
+![YOLOv5n Architecture](https://github.com/user-attachments/assets/1b33e95a-70d7-4056-a55e-079c2627405c)
 
 ## ⚙️ Training & Evaluation
 
@@ -93,3 +92,23 @@ LW-YOLOv5 compared against other lightweight and PCB-specific models:
 !python train.py --img 640 --batch 16 --epochs 100 \
   --data data/pcb.yaml --cfg models/lw-yolov5.yaml \
   --weights '' --name lw-yolov5-pcb
+
+# Evaluate model performance
+!python val.py --weights runs/train/lw-yolov5-pcb/weights/best.pt \
+  --data data/pcb.yaml --img 640
+```
+
+## 📦 Deployment on Jetson Orin Nano
+```bash
+# Export to ONNX
+!python export.py --weights runs/train/lw-yolov5-pcb/weights/best.pt \
+  --include onnx --dynamic --simplify
+
+# Run inference (PyTorch)
+!python detect.py --weights best.pt --img 640 \
+  --conf 0.25 --source pcb_yolo_dataset/images/test/
+
+# Run inference (ONNX - FP16)
+!python detect.py --weights best.onnx --img 640 \
+  --conf 0.25 --half --source pcb_yolo_dataset/images/test/
+```
