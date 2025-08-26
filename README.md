@@ -17,7 +17,7 @@ Key highlights:
 ## 📂 Dataset
 - PKU-Market-PCB dataset used for training & evaluation.
 - Six PCB defect classes: missing holes, mouse bites, open circuits, shorts, spurs, spurious copper
-- Dataset can be found on Kaggle(https://www.kaggle.com/datasets/akhatova/pcb-defects)
+- Dataset can be found on Kaggle (https://www.kaggle.com/datasets/akhatova/pcb-defects)
 
 ## 🔬 Key Contributions
 - Developed LW-YOLOv5: A compact model (1.18M params) optimized for embedded devices.
