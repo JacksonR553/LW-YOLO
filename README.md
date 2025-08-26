@@ -112,3 +112,22 @@ LW-YOLOv5 compared against other lightweight and PCB-specific models:
 !python detect.py --weights best.onnx --img 640 \
   --conf 0.25 --half --source pcb_yolo_dataset/images/test/
 ```
+
+## 📈 Experimental Results & Visualization
+
+To validate LW-YOLOv5, we performed extensive evaluation on the **PKU-Market-PCB** dataset. Below are some key visualizations from the experiments:
+
+### 🔹 Precision–Recall Curve
+<img width="755" height="660" alt="confusion matrix" src="https://github.com/user-attachments/assets/8110335f-069a-4538-8750-f91dd4e164ca" />
+
+### 🔹 Confusion Matrix
+<img width="828" height="481" alt="precision and recall chart" src="https://github.com/user-attachments/assets/8f604454-da14-4434-9126-6e1f660e5182" />
+
+### 📊 Key Metrics
+- **mAP@0.5**: **0.945**  
+- **Precision**: **0.970**  
+- **Recall**: **0.914**  
+- **Parameters**: **1.18M**  
+- **GFLOPs**: **5.1**  
+
+These results show LW-YOLOv5 achieves **high accuracy while remaining extremely lightweight**, making it ideal for **embedded deployment** on devices like the NVIDIA Jetson Orin Nano.
