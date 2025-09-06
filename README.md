@@ -80,28 +80,28 @@ LW-YOLOv5 compared against other lightweight and PCB-specific models:
 
 ## Augmentation (Albumentations)
 
-| Aspect                         | Setting / Value                                                                                       | Notes                           |
-|--------------------------------|--------------------------------------------------------------------------------------------------------|----------------------------------|
-| Library                        | Albumentations                                                                                         | Offline augmentation             |
-| Transforms                     | Horizontal & vertical flips; random brightness–contrast; shift–scale–rotate (±5%); mild motion blur    | Final resize to **640×640**      |
-| Augmented views / source image | **18**                                                                                                 |                                 |
-| Train set size (after aug)     | **9,215** examples                                                                                     | 485 originals × (1 + 18)         |
-| Class balance                  | Preserved                                                                                              | Stratified from source           |
+| Aspect                         | Setting / Value                                                                                       |
+|--------------------------------|--------------------------------------------------------------------------------------------------------|
+| Library                        | Albumentations                                                                                         |
+| Transforms                     | Horizontal & vertical flips, random brightness–contrast, shift–scale–rotate (±5%), mild motion blur, Final resize to **640×640** |
+| Augmented views / source image | **18**                                                                                                 |
+| Train set size (after aug)     | **9,215** examples                                                                                     |
+| Class balance                  | Preserved                                                                                              |
 
 
 ## Training Setup (ARMA-YOLO aligned)
 
-| Parameter        | Value        | Notes                                                   |
-|------------------|--------------|---------------------------------------------------------|
-| Input size       | **640**      |                                                         |
-| Batch size       | **24**       |                                                         |
-| Epochs           | **150**      | Early stopping in effect                                |
-| Optimizer        | **AdamW**    |                                                         |
-| Learning rate    | **0.01**     |                                                         |
-| Weight decay     | **5×10⁻⁴**   | (`5e-4`)                                                |
-| Dataset caching  | **Enabled**  |                                                         |
-| Early stopping   | **Patience = 20** |                                                  |
-| Protocol         | Held fixed across all ablations for fair comparison | Aligned with ARMA-based YOLO baseline |
+| Parameter        | Value        |
+|------------------|--------------|
+| Input size       | **640**      |
+| Batch size       | **24**       |
+| Epochs           | **150**      |
+| Optimizer        | **AdamW**    |
+| Learning rate    | **0.01**     |
+| Weight decay     | **5×10⁻⁴**   |
+| Dataset caching  | **Enabled**  |
+| Early stopping   | **Patience = 20** |
+| Protocol         | Held fixed across all ablations for fair comparison |
 
 ### 📍 Google Colab Setup
 ```bash
