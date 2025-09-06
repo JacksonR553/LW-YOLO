@@ -17,6 +17,9 @@ Key highlights:
 ## 📂 Dataset
 - PKU-Market-PCB dataset used for training & evaluation.
 - Six PCB defect classes: missing holes, mouse bites, open circuits, shorts, spurs, spurious copper
+- **1,386 RGB images**, **6 defect classes**  
+- **Curation:** Pruned to **693** labeled frames 
+- **Split:** **Train 485 • Val 138 • Test 70**
 - Dataset can be found on Kaggle (https://www.kaggle.com/datasets/akhatova/pcb-defects)
 
 ## 🔬 Key Contributions
@@ -74,6 +77,31 @@ LW-YOLOv5 compared against other lightweight and PCB-specific models:
 ![YOLOv5n Architecture](https://github.com/user-attachments/assets/1b33e95a-70d7-4056-a55e-079c2627405c)
 
 ## ⚙️ Training & Evaluation
+
+## Augmentation (Albumentations)
+
+| Aspect                         | Setting / Value                                                                                       | Notes                           |
+|--------------------------------|--------------------------------------------------------------------------------------------------------|----------------------------------|
+| Library                        | Albumentations                                                                                         | Offline augmentation             |
+| Transforms                     | Horizontal & vertical flips; random brightness–contrast; shift–scale–rotate (±5%); mild motion blur    | Final resize to **640×640**      |
+| Augmented views / source image | **18**                                                                                                 |                                 |
+| Train set size (after aug)     | **9,215** examples                                                                                     | 485 originals × (1 + 18)         |
+| Class balance                  | Preserved                                                                                              | Stratified from source           |
+
+
+## Training Setup (ARMA-YOLO aligned)
+
+| Parameter        | Value        | Notes                                                   |
+|------------------|--------------|---------------------------------------------------------|
+| Input size       | **640**      |                                                         |
+| Batch size       | **24**       |                                                         |
+| Epochs           | **150**      | Early stopping in effect                                |
+| Optimizer        | **AdamW**    |                                                         |
+| Learning rate    | **0.01**     |                                                         |
+| Weight decay     | **5×10⁻⁴**   | (`5e-4`)                                                |
+| Dataset caching  | **Enabled**  |                                                         |
+| Early stopping   | **Patience = 20** |                                                  |
+| Protocol         | Held fixed across all ablations for fair comparison | Aligned with ARMA-based YOLO baseline |
 
 ### 📍 Google Colab Setup
 ```bash
